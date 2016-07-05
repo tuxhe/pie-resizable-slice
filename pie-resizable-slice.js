@@ -214,6 +214,9 @@
         })
         .on('touchstart', function(e) {
           point.graphic.resize.start(e, point);
+        })
+        .on('click', function(e) {
+          e.preventDefault();
         });
     });
   });
