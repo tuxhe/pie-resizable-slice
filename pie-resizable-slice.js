@@ -15,6 +15,13 @@
         zIndex: 1
       }
     };
+  if(!Element.prototype.remove) {
+    Element.prototype.remove = function() {
+      if (this.parentNode) {
+        this.parentNode.removeChild(this);
+      }
+    };
+  }
   /**
    * Get angle based on x and y positions
    */
