@@ -4,7 +4,7 @@
   var each = H.each,
     defaults = {
       enabled: false,
-      resizeStep: 1,
+      resizeStep: 0,
       resizePoint: {
         size: 10,
         cursor: 'e-resize',
@@ -15,7 +15,7 @@
         zIndex: 1
       }
     };
-  if(!Element.prototype.remove) {
+  if (!Element.prototype.remove) {
     Element.prototype.remove = function() {
       if (this.parentNode) {
         this.parentNode.removeChild(this);
@@ -71,6 +71,8 @@
       H.addEvent(chart.container, 'touchend', function(e2) {
         sliceResize.stop(e2, point);
       });
+      // fire event
+      point.firePointEvent('onStartResizeSlice', point);
     },
     //step (Move)
     step: function(e, pointGraphic, point) {
@@ -91,7 +93,13 @@
           previousVisiblePoint.shapeArgs.start
         ),
         startAngle = chart.options.plotOptions.pie.startAngle || 0,
-        newStartAngle, step, minStep;
+        newStartAngle, step,
+        resizeStep = point.series.options.resizeSlice.resizeStep,
+        valueStep = (currentPoint.total / 100) * resizeStep,
+        skipToNextStep = false,
+        isIncrementY = false,
+        isIncrementNewStartAngle = false,
+        valueGap, angleStep, angleGap;
 
       // Assign new start angle based on the first point (0)
       if (currentPoint.index === series.firstVisiblePoint.index) {
@@ -116,18 +124,36 @@
         step = 1;
       }
       // Calculate Y value for current and previous points
-      minValue = step * 10;
+      minValue = 0;
       totalCurentPreviousValue = (currentPoint.y + previousVisiblePoint.y);
       maxValue = totalCurentPreviousValue - minValue;
       currentPointNewY = Math.min(Math.max(angle * step, minValue), maxValue);
+      if (resizeStep > 0) {
+        valueGap = currentPointNewY % valueStep;
+        currentPointNewY -= valueGap;
+        if (valueGap > valueStep / 2) {
+          skipToNextStep = true;
+          currentPointNewY += valueStep;
+          isIncrementY = true;
+        }
+      }
       previousVisiblePointNewY = totalCurentPreviousValue - currentPointNewY;
 
       // Validate min and max values
-      if (currentPointNewY === minValue || currentPointNewY === maxValue) {
+      if (currentPointNewY === currentPoint.y || currentPointNewY === previousVisiblePoint.y) {
         return;
       }
-      // Move firs point (StartAngle)
+      // Move first point (StartAngle)
       if (currentPoint.index === series.firstVisiblePoint.index) {
+        angleStep = (360 / 100) * resizeStep; // steps in angle
+        angleGap = angle % angleStep;
+        if (resizeStep > 0) {
+          newStartAngle -= angleGap;
+          if (skipToNextStep) {
+            newStartAngle += angleStep;
+            isIncrementNewStartAngle = true;
+          }
+        }
         each(chart.series, function(s) {
           s.options.startAngle = newStartAngle;
           s.isDirty = s.isDirtyData = true;
@@ -152,6 +178,8 @@
       H.removeEvent(point.series.chart.container, 'touchmove');
       H.removeEvent(point.series.chart.container, 'mouseup');
       H.removeEvent(point.series.chart.container, 'touchend');
+      // fire event
+      point.firePointEvent('onStopResizeSlice', point);
     }
   };
 
@@ -210,14 +238,12 @@
       }
       // Bind start event
       point.handle.on('mousedown', function(e) {
-          point.graphic.resize.start(e, point);
-        })
-        .on('touchstart', function(e) {
-          point.graphic.resize.start(e, point);
-        })
-        .on('click', function(e) {
-          e.preventDefault();
-        });
+        point.graphic.resize.start(e, point);
+        e.preventDefault();
+      }).on('touchstart', function(e) {
+        point.graphic.resize.start(e, point);
+        e.preventDefault();
+      });
     });
   });
   H.wrap(H.seriesTypes.pie.prototype, 'drawPoints', function(proceed) {
@@ -226,9 +252,7 @@
       firstVisiblePoint = null,
       pointVisibleCount = series.chart.pointCount;
     // Set default options
-    series.options.resizeSlice = $.extend({},
-      defaults, series.options.resizeSlice || {}
-    );
+    series.options.resizeSlice = H.extend(defaults, series.options.resizeSlice || {});
 
     H.each(series.data, function(point) {
       // Set first visible point
@@ -241,7 +265,7 @@
       if (previousIndex < 0) {
         previousIndex = series.points.length - 1;
       }
-      if (nextIndex > series.points.length) {
+      if (nextIndex >= series.points.length) {
         nextIndex = 0;
       }
       // previous point
@@ -274,10 +298,10 @@
       if (series.options.borderWidth === 0) {
         point.pointAttr['']['stroke-width'] = 1;
         point.pointAttr[''].stroke = point.pointAttr[''].fill;
-        point.pointAttr['hover']['stroke-width'] = 1;
-        point.pointAttr['hover'].stroke = point.pointAttr['hover'].fill;
-        point.pointAttr['select']['stroke-width'] = 1;
-        point.pointAttr['select'].stroke = point.pointAttr['select'].fill;
+        point.pointAttr.hover['stroke-width'] = 1;
+        point.pointAttr.hover.stroke = point.pointAttr.hover.fill;
+        point.pointAttr.select['stroke-width'] = 1;
+        point.pointAttr.select.stroke = point.pointAttr.select.fill;
       }
     });
     // Append point visible count property
