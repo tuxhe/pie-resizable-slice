@@ -140,8 +140,14 @@
       previousVisiblePointNewY = totalCurentPreviousValue - currentPointNewY;
 
       // Validate min and max values
-      if (currentPointNewY === currentPoint.y || currentPointNewY === previousVisiblePoint.y) {
-        return;
+      if (resizeStep > 0) {
+        if (currentPointNewY === currentPoint.y || currentPointNewY === previousVisiblePoint.y) {
+          return;
+        }
+      } else {
+        if (currentPointNewY === minValue || currentPointNewY === maxValue) {
+          return;
+        }
       }
       // Move first point (StartAngle)
       if (currentPoint.index === series.firstVisiblePoint.index) {
@@ -185,7 +191,9 @@
 
   H.wrap(H.seriesTypes.pie.prototype, 'drawTracker', function(proceed) {
     var series = this,
-      options = series.options;
+      options = series.options,
+      greaterPoint = 0,
+      currentZIndex = options.resizeSlice.resizePoint.zIndex;
 
     proceed.apply(series);
     if (!options.resizeSlice.enabled) {
@@ -213,7 +221,7 @@
           fill: options.resizeSlice.resizePoint.fill,
           stroke: options.resizeSlice.resizePoint.stroke,
           'stroke-width': options.resizeSlice.resizePoint.strokeWidth,
-          zIndex: options.resizeSlice.resizePoint.zIndex
+          zIndex: currentZIndex
         }).add(series.group);
         point.handle.element.point = point;
       } else {
@@ -232,8 +240,14 @@
           x: start.x,
           y: start.y
         });
+        if (point.y > greaterPoint) {
+          currentZIndex = options.resizeSlice.resizePoint.zIndex + 1;
+          greaterPoint = point.y;
+        } else {
+          currentZIndex = options.resizeSlice.resizePoint.zIndex;
+        }
         point.handle.attr({
-          zIndex: 1
+          zIndex: currentZIndex
         });
       }
       // Bind start event
@@ -252,7 +266,7 @@
       firstVisiblePoint = null,
       pointVisibleCount = series.chart.pointCount;
     // Set default options
-    series.options.resizeSlice = H.extend(defaults, series.options.resizeSlice || {});
+    series.options.resizeSlice = H.merge({}, defaults, series.options.resizeSlice);
 
     H.each(series.data, function(point) {
       // Set first visible point
