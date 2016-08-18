@@ -127,7 +127,7 @@
       minValue = 0;
       totalCurentPreviousValue = (currentPoint.y + previousVisiblePoint.y);
       maxValue = totalCurentPreviousValue - minValue;
-      currentPointNewY = Math.min(Math.max(angle * step, minValue), maxValue);
+      currentPointNewY = angle * step;
       if (resizeStep > 0) {
         valueGap = currentPointNewY % valueStep;
         currentPointNewY -= valueGap;
@@ -140,14 +140,8 @@
       previousVisiblePointNewY = totalCurentPreviousValue - currentPointNewY;
 
       // Validate min and max values
-      if (resizeStep > 0) {
-        if (currentPointNewY === currentPoint.y || currentPointNewY === previousVisiblePoint.y) {
-          return;
-        }
-      } else {
-        if (currentPointNewY === minValue || currentPointNewY === maxValue) {
-          return;
-        }
+      if (currentPointNewY < minValue || currentPointNewY > maxValue) {
+        return;
       }
       // Move first point (StartAngle)
       if (currentPoint.index === series.firstVisiblePoint.index) {
